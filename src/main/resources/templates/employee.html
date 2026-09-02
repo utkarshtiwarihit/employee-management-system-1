@@ -1,60 +1,66 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-  <meta charset="UTF-8">
-  <title>Employee Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <title>Employee Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Welcome, <span th:text="${user.name}"></span></h2>
-    <a href="/logout" class="btn btn-danger">Logout</a>
-  </div>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+            <div>
+                <h1 class="text-xl font-semibold" th:text="'Hello, ' + ${user.name}">Hello</h1>
+                <p class="text-sm text-slate-400" th:text="${user.department} + ' • ' + ${user.email}"></p>
+            </div>
+            <a href="/logout" class="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition">Sign out</a>
+        </header>
 
-  <div class="card p-3 mb-4 bg-light shadow-sm">
-    <h5>Today's Status: 
-      <span class="badge bg-primary" th:text="${today != null ? today.status : 'NOT MARKED'}"></span>
-    </h5>
-    <p class="mb-2">Leaves Deducted: <b class="text-danger" th:text="${user.leavesTaken}"></b> / 18</p>
-    
-    <div class="d-flex gap-2 mt-3">
-      <!-- Check-In Button -->
-      <form action="/checkin" method="post">
-        <button class="btn btn-success" th:disabled="${today != null}">Check-In</button>
-      </form>
-      
-      <!-- Check-Out Button -->
-      <form action="/checkout" method="post">
-        <button class="btn btn-warning" th:disabled="${today == null or today.checkOut != null}">Check-Out</button>
-      </form>
+        <!-- Action Card -->
+        <div class="bg-gradient-to-r from-slate-900 to-indigo-950 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-medium">Daily Punch Clock</h2>
+                <p class="text-sm text-slate-400">Log your entry and exit time for today.</p>
+            </div>
+            <div class="flex gap-3">
+                <form th:if="${todayRecord == null}" action="/employee/punch-in" method="post">
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium shadow-lg shadow-emerald-600/20 transition">Punch In</button>
+                </form>
+                <form th:if="${todayRecord != null and todayRecord.status == 'IN'}" action="/employee/punch-out" method="post">
+                    <button type="submit" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 rounded-xl font-medium shadow-lg shadow-amber-600/20 transition">Punch Out</button>
+                </form>
+                <div th:if="${todayRecord != null and todayRecord.status == 'COMPLETED'}" class="px-4 py-2 bg-slate-800 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-medium">
+                    ✓ Completed for Today
+                </div>
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="font-medium mb-4 text-slate-300">Activity Log</h3>
+            <table class="w-full text-left text-sm">
+                <thead class="text-slate-500 border-b border-slate-800">
+                    <tr>
+                        <th class="pb-3">Date</th>
+                        <th class="pb-3">Check-In</th>
+                        <th class="pb-3">Check-Out</th>
+                        <th class="pb-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                    <tr th:each="att : ${history}" class="hover:bg-slate-800/30">
+                        <td class="py-3.5" th:text="${att.date}"></td>
+                        <td class="py-3.5 text-slate-300" th:text="${att.checkInTime}">--</td>
+                        <td class="py-3.5 text-slate-300" th:text="${att.checkOutTime != null ? att.checkOutTime : '--'}"></td>
+                        <td class="py-3.5">
+                            <span th:class="${att.status == 'COMPLETED' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'} + ' px-2.5 py-1 text-xs border rounded-md font-medium'"
+                                  th:text="${att.status}">
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
-
-  <h4>Your Attendance History</h4>
-  <table class="table table-bordered table-hover mt-3">
-    <thead class="table-dark">
-      <tr>
-        <th>Date</th>
-        <th>Check-In</th>
-        <th>Check-Out</th>
-        <th>Working Minutes</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr th:each="a : ${history}">
-        <td th:text="${a.date}"></td>
-        <td th:text="${a.checkIn}"></td>
-        <td th:text="${a.checkOut}"></td>
-        <td th:text="${a.workingHours} + ' mins'"></td>
-        <td>
-          <span class="badge" 
-                th:classappend="${a.status == 'PRESENT' ? 'bg-success' : (a.status == 'HALF_DAY' ? 'bg-warning' : 'bg-danger')}" 
-                th:text="${a.status}">
-          </span>
-        </td>
-      </tr>
-    </tbody>
-  </table>
 </body>
 </html>

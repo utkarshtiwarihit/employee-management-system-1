@@ -1,95 +1,68 @@
 package com.example.demo;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpSession;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 
 @Controller
 public class AppController {
 
-    @Autowired 
-    private UserRepository userRepo;
-
-    @Autowired 
-    private AttendanceRepository attRepo;
+    @Autowired private UserRepository userRepo;
+    @Autowired private AttendanceRepository attendanceRepo;
 
     @GetMapping("/")
-    public String loginPage() { 
-        return "login"; 
+    public String loginPage() {
+        return "login";
     }
 
     @PostMapping("/login")
-    public String doLogin(@RequestParam String email, @RequestParam String password, HttpSession session) {
-        User user = userRepo.findByEmail(email).orElse(null);
+    public String login(@RequestParam String email, @RequestParam String password, HttpSession session) {
+        User user = userRepo.findByEmail(email.trim().toLowerCase()).orElse(null);
         if (user != null && user.getPassword().equals(password)) {
             session.setAttribute("user", user);
             return user.getRole().equalsIgnoreCase("HR") ? "redirect:/hr" : "redirect:/employee";
         }
-        return "redirect:/?error";
+        return "redirect:/?error=true";
     }
 
     @GetMapping("/employee")
-    public String empDashboard(HttpSession session, Model model) {
+    public String employeeDashboard(HttpSession session, Model model) {
         User user = (User) session.getAttribute("user");
         if (user == null) return "redirect:/";
-        
-        Attendance todayAtt = attRepo.findByUserIdAndDate(user.getId(), LocalDate.now()).orElse(null);
-        User currentUser = userRepo.findById(user.getId()).orElse(user);
-        
-        model.addAttribute("user", currentUser);
-        model.addAttribute("today", todayAtt);
-        model.addAttribute("history", attRepo.findByUserId(user.getId()));
+
+        List<Attendance> history = attendanceRepo.findByUserOrderByIdDesc(user);
+        Attendance today = attendanceRepo.findByUserAndDate(user, LocalDate.now()).orElse(null);
+
+        model.addAttribute("user", user);
+        model.addAttribute("history", history);
+        model.addAttribute("todayRecord", today);
         return "employee";
     }
 
-    @PostMapping("/checkin")
-    public String checkIn(HttpSession session) {
+    @PostMapping("/employee/punch-in")
+    public String punchIn(HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) return "redirect:/";
-
-        Attendance att = attRepo.findByUserIdAndDate(user.getId(), LocalDate.now()).orElse(new Attendance());
-        att.setUserId(user.getId());
-        att.setDate(LocalDate.now());
-        att.setCheckIn(LocalDateTime.now());
-        att.setStatus("PRESENT");
-        attRepo.save(att);
+        if (user != null && attendanceRepo.findByUserAndDate(user, LocalDate.now()).isEmpty()) {
+            attendanceRepo.save(new Attendance(user, LocalDate.now(), LocalTime.now(), "IN"));
+        }
         return "redirect:/employee";
     }
 
-    @PostMapping("/checkout")
-    public String checkOut(HttpSession session) {
+    @PostMapping("/employee/punch-out")
+    public String punchOut(HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) return "redirect:/";
-
-        Attendance att = attRepo.findByUserIdAndDate(user.getId(), LocalDate.now()).orElse(null);
-        if (att != null && att.getCheckIn() != null && att.getCheckOut() == null) {
-            att.setCheckOut(LocalDateTime.now());
-            
-            long minutes = Duration.between(att.getCheckIn(), att.getCheckOut()).toMinutes();
-            att.setWorkingHours((double) minutes);
-
-            User dbUser = userRepo.findById(user.getId()).orElse(user);
-            if (minutes < 240) { 
-                att.setStatus("ABSENT"); 
-                dbUser.setLeavesTaken(dbUser.getLeavesTaken() + 1.0); 
-            } else if (minutes < 480) { 
-                att.setStatus("HALF_DAY"); 
-                dbUser.setLeavesTaken(dbUser.getLeavesTaken() + 0.5); 
-            } else { 
-                att.setStatus("PRESENT"); 
-            }
-            
-            userRepo.save(dbUser);
-            attRepo.save(att);
+        if (user != null) {
+            attendanceRepo.findByUserAndDate(user, LocalDate.now()).ifPresent(att -> {
+                att.setCheckOutTime(LocalTime.now());
+                att.setStatus("COMPLETED");
+                attendanceRepo.save(att);
+            });
         }
         return "redirect:/employee";
     }
@@ -97,38 +70,21 @@ public class AppController {
     @GetMapping("/hr")
     public String hrDashboard(HttpSession session, Model model) {
         User user = (User) session.getAttribute("user");
-        if (user == null || !user.getRole().equalsIgnoreCase("HR")) {
-            return "redirect:/";
-        }
-        model.addAttribute("records", attRepo.findAll());
-        model.addAttribute("employees", userRepo.findAll());
+        if (user == null || !user.getRole().equalsIgnoreCase("HR")) return "redirect:/";
+
+        List<User> employees = userRepo.findAll();
+        List<Attendance> attendances = attendanceRepo.findAll();
+
+        long presentToday = attendances.stream()
+                .filter(a -> a.getDate().equals(LocalDate.now()))
+                .count();
+
+        model.addAttribute("user", user);
+        model.addAttribute("employees", employees);
+        model.addAttribute("attendances", attendances);
+        model.addAttribute("totalStaff", employees.size());
+        model.addAttribute("presentToday", presentToday);
         return "hr";
-    }
-
-    // HR द्वारा नया Employee ऐड करने का एंडपॉइंट
-    @PostMapping("/hr/add-employee")
-    public String addEmployee(
-            @RequestParam String name,
-            @RequestParam String designation,
-            @RequestParam String email,
-            @RequestParam String password,
-            HttpSession session) {
-        
-        User hr = (User) session.getAttribute("user");
-        if (hr == null || !hr.getRole().equalsIgnoreCase("HR")) {
-            return "redirect:/";
-        }
-
-        User newEmp = new User();
-        newEmp.setName(name);
-        newEmp.setDesignation(designation);
-        newEmp.setEmail(email);
-        newEmp.setPassword(password);
-        newEmp.setRole("EMPLOYEE");
-        newEmp.setLeavesTaken(0.0);
-
-        userRepo.save(newEmp);
-        return "redirect:/hr?success";
     }
 
     @GetMapping("/logout")
