@@ -87,6 +87,29 @@ public class AppController {
         return "hr";
     }
 
+    @PostMapping("/hr/add-employee")
+    public String addEmployee(@RequestParam String name,
+                              @RequestParam String designation,
+                              @RequestParam String email,
+                              @RequestParam String password,
+                              HttpSession session) {
+        User hr = (User) session.getAttribute("user");
+        if (hr == null || !hr.getRole().equalsIgnoreCase("HR")) {
+            return "redirect:/";
+        }
+
+        User emp = new User();
+        emp.setName(name);
+        emp.setDesignation(designation);
+        emp.setEmail(email.trim().toLowerCase());
+        emp.setPassword(password);
+        emp.setRole("EMPLOYEE");
+        emp.setLeavesTaken(0.0);
+        userRepo.save(emp);
+
+        return "redirect:/hr";
+    }
+
     @GetMapping("/logout")
     public String logout(HttpSession session) {
         session.invalidate();
