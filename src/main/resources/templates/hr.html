@@ -72,6 +72,7 @@
                             <th class="pb-3">Designation</th>
                             <th class="pb-3">Email</th>
                             <th class="pb-3">Role</th>
+                            <th class="pb-3">Leaves Taken</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-800/50">
@@ -85,6 +86,7 @@
                                       th:text="${emp.role}">
                                 </span>
                             </td>
+                            <td class="py-3.5 text-amber-400 font-medium" th:text="${emp.leavesTaken != null ? emp.leavesTaken : 0.0} + ' d'"></td>
                         </tr>
                     </tbody>
                 </table>

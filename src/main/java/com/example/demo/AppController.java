@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Controller
@@ -15,6 +17,8 @@ public class AppController {
 
     @Autowired private UserRepository userRepo;
     @Autowired private AttendanceRepository attendanceRepo;
+
+    private final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     @GetMapping("/")
     public String loginPage() {
@@ -36,20 +40,28 @@ public class AppController {
         User user = (User) session.getAttribute("user");
         if (user == null) return "redirect:/";
 
+        user = userRepo.findById(user.getId()).orElse(user);
+        session.setAttribute("user", user);
+
+        LocalDate today = LocalDate.now(IST);
         List<Attendance> history = attendanceRepo.findByUserOrderByIdDesc(user);
-        Attendance today = attendanceRepo.findByUserAndDate(user, LocalDate.now()).orElse(null);
+        Attendance todayRecord = attendanceRepo.findByUserAndDate(user, today).orElse(null);
 
         model.addAttribute("user", user);
         model.addAttribute("history", history);
-        model.addAttribute("todayRecord", today);
+        model.addAttribute("todayRecord", todayRecord);
         return "employee";
     }
 
     @PostMapping("/employee/punch-in")
     public String punchIn(HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user != null && attendanceRepo.findByUserAndDate(user, LocalDate.now()).isEmpty()) {
-            attendanceRepo.save(new Attendance(user, LocalDate.now(), LocalTime.now(), "IN"));
+        if (user != null) {
+            LocalDate today = LocalDate.now(IST);
+            if (attendanceRepo.findByUserAndDate(user, today).isEmpty()) {
+                LocalTime now = LocalTime.now(IST).truncatedTo(ChronoUnit.SECONDS);
+                attendanceRepo.save(new Attendance(user, today, now, "IN"));
+            }
         }
         return "redirect:/employee";
     }
@@ -58,10 +70,25 @@ public class AppController {
     public String punchOut(HttpSession session) {
         User user = (User) session.getAttribute("user");
         if (user != null) {
-            attendanceRepo.findByUserAndDate(user, LocalDate.now()).ifPresent(att -> {
-                att.setCheckOutTime(LocalTime.now());
+            LocalDate today = LocalDate.now(IST);
+            attendanceRepo.findByUserAndDate(user, today).ifPresent(att -> {
+                att.setCheckOutTime(LocalTime.now(IST).truncatedTo(ChronoUnit.SECONDS));
                 att.setStatus("COMPLETED");
                 attendanceRepo.save(att);
+            });
+        }
+        return "redirect:/employee";
+    }
+
+    @PostMapping("/employee/apply-leave")
+    public String applyLeave(@RequestParam(defaultValue = "1.0") Double days, HttpSession session) {
+        User sessionUser = (User) session.getAttribute("user");
+        if (sessionUser != null) {
+            userRepo.findById(sessionUser.getId()).ifPresent(user -> {
+                double current = user.getLeavesTaken() != null ? user.getLeavesTaken() : 0.0;
+                user.setLeavesTaken(current + days);
+                userRepo.save(user);
+                session.setAttribute("user", user);
             });
         }
         return "redirect:/employee";
@@ -74,9 +101,10 @@ public class AppController {
 
         List<User> employees = userRepo.findAll();
         List<Attendance> attendances = attendanceRepo.findAll();
+        LocalDate today = LocalDate.now(IST);
 
         long presentToday = attendances.stream()
-                .filter(a -> a.getDate().equals(LocalDate.now()))
+                .filter(a -> a.getDate().equals(today))
                 .count();
 
         model.addAttribute("user", user);
@@ -94,9 +122,7 @@ public class AppController {
                               @RequestParam String password,
                               HttpSession session) {
         User hr = (User) session.getAttribute("user");
-        if (hr == null || !hr.getRole().equalsIgnoreCase("HR")) {
-            return "redirect:/";
-        }
+        if (hr == null || !hr.getRole().equalsIgnoreCase("HR")) return "redirect:/";
 
         User emp = new User();
         emp.setName(name);
