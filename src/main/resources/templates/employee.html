@@ -11,7 +11,7 @@
         <header class="flex justify-between items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl">
             <div>
                 <h1 class="text-xl font-semibold" th:text="'Hello, ' + ${user.name}">Hello</h1>
-                <p class="text-sm text-slate-400" th:text="${user.department} + ' • ' + ${user.email}"></p>
+                <p class="text-sm text-slate-400" th:text="${user.designation} + ' • ' + ${user.email}"></p>
             </div>
             <a href="/logout" class="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition">Sign out</a>
         </header>
@@ -51,7 +51,7 @@
                     <tr th:each="att : ${history}" class="hover:bg-slate-800/30">
                         <td class="py-3.5" th:text="${att.date}"></td>
                         <td class="py-3.5 text-slate-300" th:text="${att.checkInTime}">--</td>
-                        <td class="py-3.5 text-slate-300" th:text="${att.checkOutTime != null ? att.checkOutTime : '--'}"></td>
+                        <td class="py-3.5 text-slate-300" th:text="${att.checkOutTime != null ? att.checkOutTime : '--'}">--</td>
                         <td class="py-3.5">
                             <span th:class="${att.status == 'COMPLETED' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'} + ' px-2.5 py-1 text-xs border rounded-md font-medium'"
                                   th:text="${att.status}">
