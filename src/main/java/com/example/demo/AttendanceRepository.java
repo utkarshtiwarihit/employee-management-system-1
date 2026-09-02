@@ -8,6 +8,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+}
+
+@Repository
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findByUserOrderByIdDesc(User user);
     Optional<Attendance> findByUserAndDate(User user, LocalDate date);
