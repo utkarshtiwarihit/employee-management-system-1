@@ -27,10 +27,10 @@ public class DemoApplication {
 
             // 2. Employee Login Account
             User emp = new User();
-            emp.setName("Kanish");
+            emp.setName("Rishav");
             emp.setDesignation("Software Engineer");
-            emp.setEmail("Kanish@test.com");
-            emp.setPassword("Kanish123");
+            emp.setEmail("rishav@test.com");
+            emp.setPassword("rishav123");
             emp.setRole("EMPLOYEE");
             emp.setLeavesTaken(0.0);
             userRepo.save(emp);
